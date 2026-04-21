@@ -1,0 +1,18 @@
+# Santiago Fernández · santifer
+> AI Product Engineer building production agents with agentic RAG, LLMOps observability, evals as CI gate, and a self-healing closed loop.
+
+## Pages
+- [Home (ES)](/es): Interactive CV in Spanish
+- [Home (EN)](/en): Interactive CV in English
+
+## Sections
+- About: Background and approach to AI product engineering
+- Experience: Roles and achievements
+- Projects: Featured production systems
+- Stack: Technical skills (Claude, RAG, pgvector, Langfuse, Supabase, n8n, etc.)
+- Architecture: Chatbot pipeline diagram with cost per span
+- Cases: Self-Healing Chatbot, Career-Ops, Programmatic SEO
+
+## Contact
+- Email: hi@santifer.io
+- GitHub: https://github.com/santifer
