@@ -21,6 +21,11 @@ export const AppHeader = () => {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between">
         <Logo to="/dashboard" />
+        <nav className="hidden md:flex items-center gap-1 text-sm">
+          <Link to="/dashboard" className="px-3 py-1.5 rounded-md hover:bg-muted">My CVs</Link>
+          <Link to="/jobs" className="px-3 py-1.5 rounded-md hover:bg-muted">Jobs</Link>
+          <Link to="/applications" className="px-3 py-1.5 rounded-md hover:bg-muted">Applications</Link>
+        </nav>
         <div className="flex items-center gap-3">
           <Link
             to="/dashboard"
