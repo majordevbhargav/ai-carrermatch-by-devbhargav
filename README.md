@@ -234,49 +234,7 @@ MIT License
 ---
 
 ## Author
+DEV BHARGAV
 
 Built with ❤️ using React, Firebase, and OpenAI.
 
----
-
-# 18. Environment Variables
-
-Use:
-
-VITE_FIREBASE_API_KEY=
-VITE_FIREBASE_AUTH_DOMAIN=
-VITE_FIREBASE_PROJECT_ID=
-VITE_FIREBASE_STORAGE_BUCKET=
-VITE_FIREBASE_MESSAGING_SENDER_ID=
-VITE_FIREBASE_APP_ID=
-VITE_OPENAI_API_KEY=
-
----
-
-# 19. Deployment Preparation
-
-Prepare the project for:
-
-* One-click Vercel deployment
-* Production build optimization
-* SEO-friendly structure
-* Fast loading performance
-
----
-
-# 20. Final Output Requirements
-
-Generate:
-
-* Complete frontend
-* Firebase backend integration
-* OpenAI integration
-* Responsive layouts
-* Reusable components
-* Clean scalable architecture
-* Fully functional dashboard
-* Production-ready code
-* Modern animations
-* Premium UI design
-
-The final application should look and feel like a real funded startup SaaS product with polished UI, modern UX, scalable architecture, reusable code, and fully working AI-powered features.
