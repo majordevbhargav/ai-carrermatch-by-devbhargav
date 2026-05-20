@@ -10,6 +10,8 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import CvDetail from "./pages/CvDetail";
+import Jobs from "./pages/Jobs";
+import Applications from "./pages/Applications";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -40,6 +42,14 @@ const App = () => (
                     <CvDetail />
                   </RequireAuth>
                 }
+              />
+              <Route
+                path="/jobs"
+                element={<RequireAuth><Jobs /></RequireAuth>}
+              />
+              <Route
+                path="/applications"
+                element={<RequireAuth><Applications /></RequireAuth>}
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
