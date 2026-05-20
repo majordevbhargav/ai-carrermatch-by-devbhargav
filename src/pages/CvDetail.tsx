@@ -1,49 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Mail, Phone, Globe, MapPin, GraduationCap, Briefcase, Code2, Wrench, FileText, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Loader2, ArrowLeft, GraduationCap, Briefcase, Code2, Wrench, FileText,
+  RefreshCw, Save, Plus, Trash2, User, Globe, Award,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface ExtractedExperience {
-  title?: string;
-  company?: string;
-  location?: string;
-  start_date?: string;
-  end_date?: string;
-  description?: string;
+  title?: string; company?: string; location?: string;
+  start_date?: string; end_date?: string; description?: string;
   highlights?: string[];
 }
 interface ExtractedEducation {
-  institution?: string;
-  degree?: string;
-  field_of_study?: string;
-  start_date?: string;
-  end_date?: string;
-  gpa?: string;
+  institution?: string; degree?: string; field_of_study?: string;
+  start_date?: string; end_date?: string; gpa?: string;
 }
 interface ExtractedProject {
-  name?: string;
-  description?: string;
-  technologies?: string[];
-  url?: string;
+  name?: string; description?: string; technologies?: string[]; url?: string;
 }
 interface Extracted {
-  full_name?: string;
-  email?: string;
-  phone?: string;
-  location?: string;
-  website?: string;
+  full_name?: string; email?: string; phone?: string; location?: string; website?: string;
   summary?: string;
-  skills?: string[];
-  languages?: string[];
+  skills?: string[]; languages?: string[]; certifications?: string[];
   experience?: ExtractedExperience[];
   education?: ExtractedEducation[];
   projects?: ExtractedProject[];
-  certifications?: string[];
 }
 
 interface CvRow {
@@ -53,58 +41,161 @@ interface CvRow {
   status: "pending" | "parsing" | "ready" | "failed";
   error: string | null;
   extracted: Extracted | null;
-  raw_text: string | null;
 }
 
-const Section = ({ icon: Icon, title, children, count }: { icon: any; title: string; children: React.ReactNode; count?: number }) => (
+const emptyData: Extracted = {
+  full_name: "", email: "", phone: "", location: "", website: "", summary: "",
+  skills: [], languages: [], certifications: [],
+  experience: [], education: [], projects: [],
+};
+
+const normalize = (e: Extracted | null): Extracted => ({
+  ...emptyData,
+  ...(e ?? {}),
+  skills: e?.skills ?? [],
+  languages: e?.languages ?? [],
+  certifications: e?.certifications ?? [],
+  experience: e?.experience ?? [],
+  education: e?.education ?? [],
+  projects: e?.projects ?? [],
+});
+
+const SectionCard = ({ icon: Icon, title, action, children }: {
+  icon: any; title: string; action?: React.ReactNode; children: React.ReactNode;
+}) => (
   <section className="surface-card p-6">
-    <div className="flex items-center gap-2.5 mb-4">
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary">
-        <Icon className="h-4 w-4" />
-      </span>
-      <h2 className="font-display text-lg font-bold">{title}</h2>
-      {count !== undefined && (
-        <span className="text-xs text-muted-foreground">({count})</span>
-      )}
+    <div className="flex items-center justify-between gap-3 mb-5">
+      <div className="flex items-center gap-2.5">
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary">
+          <Icon className="h-4 w-4" />
+        </span>
+        <h2 className="font-display text-lg font-bold">{title}</h2>
+      </div>
+      {action}
     </div>
     {children}
   </section>
 );
 
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="space-y-1.5">
+    <Label className="text-xs text-muted-foreground">{label}</Label>
+    {children}
+  </div>
+);
+
+// Tag/chip editor for string arrays
+const TagEditor = ({ value, onChange, placeholder }: {
+  value: string[]; onChange: (v: string[]) => void; placeholder: string;
+}) => {
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const items = draft.split(",").map((s) => s.trim()).filter(Boolean);
+    if (!items.length) return;
+    const next = Array.from(new Set([...value, ...items]));
+    onChange(next);
+    setDraft("");
+  };
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {value.length === 0 && (
+          <span className="text-xs text-muted-foreground italic">Nothing yet — add below.</span>
+        )}
+        {value.map((tag, i) => (
+          <span key={`${tag}-${i}`} className="chip bg-primary-soft text-primary border border-primary/15 group">
+            {tag}
+            <button
+              type="button"
+              onClick={() => onChange(value.filter((_, j) => j !== i))}
+              className="ml-1 opacity-60 hover:opacity-100"
+              aria-label={`Remove ${tag}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); }
+          }}
+          placeholder={placeholder}
+        />
+        <Button type="button" variant="outline" onClick={add}>
+          <Plus className="h-4 w-4" /> Add
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const CvDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
   const [cv, setCv] = useState<CvRow | null>(null);
+  const [data, setData] = useState<Extracted>(emptyData);
+  const [initialData, setInitialData] = useState<Extracted>(emptyData);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [reparsing, setReparsing] = useState(false);
 
   const load = async () => {
     if (!id) return;
-    const { data, error } = await supabase
+    const { data: row, error } = await supabase
       .from("cvs")
-      .select("id,label,file_name,status,error,extracted,raw_text")
+      .select("id,label,file_name,status,error,extracted")
       .eq("id", id)
       .maybeSingle();
     if (error) toast.error(error.message);
-    setCv(data as CvRow | null);
+    const typed = row as CvRow | null;
+    setCv(typed);
+    if (typed) {
+      const n = normalize(typed.extracted);
+      setData(n);
+      setInitialData(n);
+    }
     setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
   // Poll while parsing
   useEffect(() => {
     if (cv?.status !== "parsing" && cv?.status !== "pending") return;
     const t = setInterval(load, 2000);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [cv?.status]);
+
+  const dirty = useMemo(
+    () => JSON.stringify(data) !== JSON.stringify(initialData),
+    [data, initialData],
+  );
+
+  const save = async () => {
+    if (!cv) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("cvs")
+        .update({ extracted: data as any })
+        .eq("id", cv.id);
+      if (error) throw error;
+      setInitialData(data);
+      toast.success("CV details saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const reparse = async () => {
     if (!cv) return;
+    if (dirty && !confirm("You have unsaved edits. Re-parsing will overwrite them. Continue?")) return;
     setReparsing(true);
     try {
       const { error } = await supabase.functions.invoke("parse-cv", { body: { cvId: cv.id } });
@@ -117,6 +208,14 @@ const CvDetail = () => {
       setReparsing(false);
     }
   };
+
+  // Helpers to update list items immutably
+  const updateExp = (i: number, patch: Partial<ExtractedExperience>) =>
+    setData((d) => ({ ...d, experience: d.experience!.map((e, j) => j === i ? { ...e, ...patch } : e) }));
+  const updateEdu = (i: number, patch: Partial<ExtractedEducation>) =>
+    setData((d) => ({ ...d, education: d.education!.map((e, j) => j === i ? { ...e, ...patch } : e) }));
+  const updateProj = (i: number, patch: Partial<ExtractedProject>) =>
+    setData((d) => ({ ...d, projects: d.projects!.map((p, j) => j === i ? { ...p, ...patch } : p) }));
 
   if (loading) {
     return (
@@ -141,7 +240,6 @@ const CvDetail = () => {
     );
   }
 
-  const ex = cv.extracted ?? {};
   const isProcessing = cv.status === "pending" || cv.status === "parsing";
 
   return (
@@ -149,12 +247,12 @@ const CvDetail = () => {
       <Helmet><title>{cv.label} · CareerMatch</title></Helmet>
       <AppHeader />
 
-      <main className="container py-8 max-w-5xl">
+      <main className="container py-8 max-w-5xl pb-32">
         <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4" /> Back to dashboard
         </Link>
 
-        <div className="flex items-start justify-between gap-4 mb-8">
+        <div className="flex items-start justify-between gap-4 mb-8 flex-wrap">
           <div>
             <h1 className="font-display text-3xl font-bold">{cv.label}</h1>
             <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
@@ -163,7 +261,7 @@ const CvDetail = () => {
           </div>
           <Button variant="outline" size="sm" onClick={reparse} disabled={reparsing || isProcessing}>
             {reparsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Re-parse
+            Re-parse with AI
           </Button>
         </div>
 
@@ -172,7 +270,7 @@ const CvDetail = () => {
             <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary mb-3" />
             <h2 className="font-display text-lg font-bold">AI is reading your CV…</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Extracting skills, experience, education and projects. This usually takes 5–15 seconds.
+              Extracting skills, experience, education and projects.
             </p>
           </div>
         )}
@@ -187,113 +285,242 @@ const CvDetail = () => {
 
         {cv.status === "ready" && (
           <div className="space-y-6 animate-fade-in-up">
-            {/* Header card */}
-            <div className="surface-elevated p-6 md:p-8 bg-gradient-primary text-primary-foreground">
-              <div className="text-xs uppercase tracking-wider opacity-80 mb-1">Profile</div>
-              <h2 className="font-display text-2xl md:text-3xl font-extrabold">
-                {ex.full_name ?? "Your profile"}
-              </h2>
-              {ex.summary && <p className="mt-3 max-w-2xl opacity-95 leading-relaxed">{ex.summary}</p>}
-              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm opacity-95">
-                {ex.email && <span className="inline-flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" />{ex.email}</span>}
-                {ex.phone && <span className="inline-flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{ex.phone}</span>}
-                {ex.location && <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{ex.location}</span>}
-                {ex.website && <span className="inline-flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" />{ex.website}</span>}
+            <SectionCard icon={User} title="Profile">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Full name">
+                  <Input value={data.full_name ?? ""} onChange={(e) => setData({ ...data, full_name: e.target.value })} />
+                </Field>
+                <Field label="Email">
+                  <Input type="email" value={data.email ?? ""} onChange={(e) => setData({ ...data, email: e.target.value })} />
+                </Field>
+                <Field label="Phone">
+                  <Input value={data.phone ?? ""} onChange={(e) => setData({ ...data, phone: e.target.value })} />
+                </Field>
+                <Field label="Location">
+                  <Input value={data.location ?? ""} onChange={(e) => setData({ ...data, location: e.target.value })} />
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Website / portfolio">
+                    <Input value={data.website ?? ""} onChange={(e) => setData({ ...data, website: e.target.value })} />
+                  </Field>
+                </div>
+                <div className="sm:col-span-2">
+                  <Field label="Summary">
+                    <Textarea
+                      rows={4}
+                      value={data.summary ?? ""}
+                      onChange={(e) => setData({ ...data, summary: e.target.value })}
+                      placeholder="A short overview used to tailor applications."
+                    />
+                  </Field>
+                </div>
               </div>
-            </div>
+            </SectionCard>
 
-            {ex.skills && ex.skills.length > 0 && (
-              <Section icon={Wrench} title="Skills" count={ex.skills.length}>
-                <div className="flex flex-wrap gap-2">
-                  {ex.skills.map((s) => (
-                    <span key={s} className="chip bg-primary-soft text-primary border border-primary/15">{s}</span>
-                  ))}
-                </div>
-              </Section>
-            )}
+            <SectionCard icon={Wrench} title="Skills">
+              <TagEditor
+                value={data.skills ?? []}
+                onChange={(v) => setData({ ...data, skills: v })}
+                placeholder="Add a skill (Enter to confirm, comma to separate)"
+              />
+            </SectionCard>
 
-            {ex.experience && ex.experience.length > 0 && (
-              <Section icon={Briefcase} title="Experience" count={ex.experience.length}>
-                <ol className="space-y-5">
-                  {ex.experience.map((e, i) => (
-                    <li key={i} className="border-l-2 border-primary/30 pl-4">
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                        <h3 className="font-semibold">{e.title}{e.company && <span className="text-muted-foreground font-normal"> · {e.company}</span>}</h3>
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {e.start_date ?? ""}{e.end_date ? ` – ${e.end_date}` : e.start_date ? " – present" : ""}
-                        </span>
+            <SectionCard
+              icon={Briefcase}
+              title="Experience"
+              action={
+                <Button type="button" variant="outline" size="sm" onClick={() =>
+                  setData({ ...data, experience: [...(data.experience ?? []), {}] })
+                }>
+                  <Plus className="h-4 w-4" /> Add role
+                </Button>
+              }
+            >
+              <div className="space-y-5">
+                {(data.experience ?? []).length === 0 && (
+                  <p className="text-sm text-muted-foreground italic">No roles yet.</p>
+                )}
+                {(data.experience ?? []).map((e, i) => (
+                  <div key={i} className="rounded-xl border border-border p-4 space-y-3">
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <Field label="Title">
+                        <Input value={e.title ?? ""} onChange={(ev) => updateExp(i, { title: ev.target.value })} />
+                      </Field>
+                      <Field label="Company">
+                        <Input value={e.company ?? ""} onChange={(ev) => updateExp(i, { company: ev.target.value })} />
+                      </Field>
+                      <Field label="Location">
+                        <Input value={e.location ?? ""} onChange={(ev) => updateExp(i, { location: ev.target.value })} />
+                      </Field>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field label="Start">
+                          <Input value={e.start_date ?? ""} onChange={(ev) => updateExp(i, { start_date: ev.target.value })} placeholder="Jan 2024" />
+                        </Field>
+                        <Field label="End">
+                          <Input value={e.end_date ?? ""} onChange={(ev) => updateExp(i, { end_date: ev.target.value })} placeholder="Present" />
+                        </Field>
                       </div>
-                      {e.location && <div className="text-xs text-muted-foreground">{e.location}</div>}
-                      {e.description && <p className="text-sm mt-1.5 text-muted-foreground leading-relaxed">{e.description}</p>}
-                      {e.highlights && e.highlights.length > 0 && (
-                        <ul className="mt-2 space-y-1 text-sm list-disc pl-4 marker:text-primary">
-                          {e.highlights.map((h, j) => <li key={j}>{h}</li>)}
-                        </ul>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </Section>
-            )}
+                    </div>
+                    <Field label="Description">
+                      <Textarea rows={2} value={e.description ?? ""} onChange={(ev) => updateExp(i, { description: ev.target.value })} />
+                    </Field>
+                    <Field label="Highlights (one per line)">
+                      <Textarea
+                        rows={3}
+                        value={(e.highlights ?? []).join("\n")}
+                        onChange={(ev) => updateExp(i, { highlights: ev.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                        placeholder="• Shipped X driving Y% improvement"
+                      />
+                    </Field>
+                    <div className="flex justify-end">
+                      <Button type="button" variant="ghost" size="sm" onClick={() =>
+                        setData({ ...data, experience: data.experience!.filter((_, j) => j !== i) })
+                      }>
+                        <Trash2 className="h-4 w-4" /> Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
 
-            {ex.education && ex.education.length > 0 && (
-              <Section icon={GraduationCap} title="Education" count={ex.education.length}>
-                <ul className="space-y-4">
-                  {ex.education.map((e, i) => (
-                    <li key={i}>
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                        <h3 className="font-semibold">{e.degree}{e.field_of_study && ` in ${e.field_of_study}`}</h3>
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {e.start_date ?? ""}{e.end_date ? ` – ${e.end_date}` : ""}
-                        </span>
-                      </div>
-                      <div className="text-sm text-muted-foreground">{e.institution}{e.gpa && ` · GPA ${e.gpa}`}</div>
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            )}
+            <SectionCard
+              icon={GraduationCap}
+              title="Education"
+              action={
+                <Button type="button" variant="outline" size="sm" onClick={() =>
+                  setData({ ...data, education: [...(data.education ?? []), {}] })
+                }>
+                  <Plus className="h-4 w-4" /> Add
+                </Button>
+              }
+            >
+              <div className="space-y-4">
+                {(data.education ?? []).length === 0 && (
+                  <p className="text-sm text-muted-foreground italic">No education yet.</p>
+                )}
+                {(data.education ?? []).map((e, i) => (
+                  <div key={i} className="rounded-xl border border-border p-4 space-y-3">
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <Field label="Institution">
+                        <Input value={e.institution ?? ""} onChange={(ev) => updateEdu(i, { institution: ev.target.value })} />
+                      </Field>
+                      <Field label="Degree">
+                        <Input value={e.degree ?? ""} onChange={(ev) => updateEdu(i, { degree: ev.target.value })} />
+                      </Field>
+                      <Field label="Field of study">
+                        <Input value={e.field_of_study ?? ""} onChange={(ev) => updateEdu(i, { field_of_study: ev.target.value })} />
+                      </Field>
+                      <Field label="GPA">
+                        <Input value={e.gpa ?? ""} onChange={(ev) => updateEdu(i, { gpa: ev.target.value })} />
+                      </Field>
+                      <Field label="Start">
+                        <Input value={e.start_date ?? ""} onChange={(ev) => updateEdu(i, { start_date: ev.target.value })} />
+                      </Field>
+                      <Field label="End">
+                        <Input value={e.end_date ?? ""} onChange={(ev) => updateEdu(i, { end_date: ev.target.value })} />
+                      </Field>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button type="button" variant="ghost" size="sm" onClick={() =>
+                        setData({ ...data, education: data.education!.filter((_, j) => j !== i) })
+                      }>
+                        <Trash2 className="h-4 w-4" /> Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
 
-            {ex.projects && ex.projects.length > 0 && (
-              <Section icon={Code2} title="Projects" count={ex.projects.length}>
-                <ul className="grid sm:grid-cols-2 gap-4">
-                  {ex.projects.map((p, i) => (
-                    <li key={i} className="rounded-xl border border-border p-4">
-                      <h3 className="font-semibold">{p.name}</h3>
-                      {p.description && <p className="text-sm text-muted-foreground mt-1">{p.description}</p>}
-                      {p.technologies && p.technologies.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {p.technologies.map((t) => (
-                            <span key={t} className="chip bg-muted text-muted-foreground text-[10px]">{t}</span>
-                          ))}
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            )}
+            <SectionCard
+              icon={Code2}
+              title="Projects"
+              action={
+                <Button type="button" variant="outline" size="sm" onClick={() =>
+                  setData({ ...data, projects: [...(data.projects ?? []), {}] })
+                }>
+                  <Plus className="h-4 w-4" /> Add
+                </Button>
+              }
+            >
+              <div className="space-y-4">
+                {(data.projects ?? []).length === 0 && (
+                  <p className="text-sm text-muted-foreground italic">No projects yet.</p>
+                )}
+                {(data.projects ?? []).map((p, i) => (
+                  <div key={i} className="rounded-xl border border-border p-4 space-y-3">
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <Field label="Name">
+                        <Input value={p.name ?? ""} onChange={(ev) => updateProj(i, { name: ev.target.value })} />
+                      </Field>
+                      <Field label="URL">
+                        <Input value={p.url ?? ""} onChange={(ev) => updateProj(i, { url: ev.target.value })} />
+                      </Field>
+                    </div>
+                    <Field label="Description">
+                      <Textarea rows={2} value={p.description ?? ""} onChange={(ev) => updateProj(i, { description: ev.target.value })} />
+                    </Field>
+                    <Field label="Technologies">
+                      <TagEditor
+                        value={p.technologies ?? []}
+                        onChange={(v) => updateProj(i, { technologies: v })}
+                        placeholder="React, Postgres, …"
+                      />
+                    </Field>
+                    <div className="flex justify-end">
+                      <Button type="button" variant="ghost" size="sm" onClick={() =>
+                        setData({ ...data, projects: data.projects!.filter((_, j) => j !== i) })
+                      }>
+                        <Trash2 className="h-4 w-4" /> Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
 
-            {ex.certifications && ex.certifications.length > 0 && (
-              <Section icon={Wrench} title="Certifications" count={ex.certifications.length}>
-                <ul className="list-disc pl-5 space-y-1 text-sm marker:text-primary">
-                  {ex.certifications.map((c) => <li key={c}>{c}</li>)}
-                </ul>
-              </Section>
-            )}
+            <SectionCard icon={Globe} title="Languages">
+              <TagEditor
+                value={data.languages ?? []}
+                onChange={(v) => setData({ ...data, languages: v })}
+                placeholder="English (native), Spanish (B2)…"
+              />
+            </SectionCard>
 
-            {ex.languages && ex.languages.length > 0 && (
-              <Section icon={Globe} title="Languages" count={ex.languages.length}>
-                <div className="flex flex-wrap gap-2">
-                  {ex.languages.map((l) => (
-                    <span key={l} className="chip bg-accent-soft text-accent border border-accent/15">{l}</span>
-                  ))}
-                </div>
-              </Section>
-            )}
+            <SectionCard icon={Award} title="Certifications">
+              <TagEditor
+                value={data.certifications ?? []}
+                onChange={(v) => setData({ ...data, certifications: v })}
+                placeholder="AWS Certified Cloud Practitioner…"
+              />
+            </SectionCard>
           </div>
         )}
       </main>
+
+      {/* Sticky save bar */}
+      {cv.status === "ready" && (
+        <div className={`fixed bottom-0 inset-x-0 z-40 transition-transform ${dirty ? "translate-y-0" : "translate-y-full"}`}>
+          <div className="container max-w-5xl pb-4">
+            <div className="surface-elevated flex items-center justify-between gap-4 px-5 py-3 border border-border bg-background/95 backdrop-blur">
+              <p className="text-sm">
+                <span className="font-medium">Unsaved changes</span>
+                <span className="text-muted-foreground"> — your edits are not yet stored.</span>
+              </p>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => setData(initialData)} disabled={saving}>
+                  Discard
+                </Button>
+                <Button onClick={save} disabled={saving} className="bg-gradient-primary">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
