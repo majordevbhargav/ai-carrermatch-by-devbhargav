@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      applications: {
+        Row: {
+          cover_letter: string | null
+          created_at: string
+          cv_id: string | null
+          id: string
+          job_id: string
+          match_score: number | null
+          notes: string | null
+          status: Database["public"]["Enums"]["application_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cover_letter?: string | null
+          created_at?: string
+          cv_id?: string | null
+          id?: string
+          job_id: string
+          match_score?: number | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cover_letter?: string | null
+          created_at?: string
+          cv_id?: string | null
+          id?: string
+          job_id?: string
+          match_score?: number | null
+          notes?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_cv_id_fkey"
+            columns: ["cv_id"]
+            isOneToOne: false
+            referencedRelation: "cvs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cvs: {
         Row: {
           created_at: string
@@ -65,6 +119,66 @@ export type Database = {
         }
         Relationships: []
       }
+      jobs: {
+        Row: {
+          company: string
+          created_at: string
+          currency: string | null
+          description: string
+          employment_type: string | null
+          id: string
+          is_active: boolean
+          location: string | null
+          nice_to_have_skills: string[]
+          posted_at: string
+          required_skills: string[]
+          salary_max: number | null
+          salary_min: number | null
+          title: string
+          updated_at: string
+          url: string | null
+          work_mode: string | null
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          currency?: string | null
+          description: string
+          employment_type?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          nice_to_have_skills?: string[]
+          posted_at?: string
+          required_skills?: string[]
+          salary_max?: number | null
+          salary_min?: number | null
+          title: string
+          updated_at?: string
+          url?: string | null
+          work_mode?: string | null
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          currency?: string | null
+          description?: string
+          employment_type?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          nice_to_have_skills?: string[]
+          posted_at?: string
+          required_skills?: string[]
+          salary_max?: number | null
+          salary_min?: number | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+          work_mode?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -103,7 +217,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      application_status:
+        | "saved"
+        | "applied"
+        | "interview"
+        | "offer"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -230,6 +349,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      application_status: [
+        "saved",
+        "applied",
+        "interview",
+        "offer",
+        "rejected",
+      ],
+    },
   },
 } as const
