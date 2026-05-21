@@ -191,6 +191,10 @@ const Auth = () => {
           </p>
         </div>
       </main>
+
+      <section className="container pb-16">
+        <FeaturedJobs />
+      </section>
     </div>
   );
 };
