@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
+import { FeaturedJobs } from "@/components/FeaturedJobs";
 import { Helmet } from "react-helmet-async";
 import { Sparkles, Upload, Wand2, Target, ArrowRight, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -143,6 +144,11 @@ const Landing = () => {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Featured jobs */}
+        <section className="container py-16">
+          <FeaturedJobs />
         </section>
 
         {/* CTA */}
