@@ -146,6 +146,11 @@ const Landing = () => {
           </div>
         </section>
 
+        {/* Featured jobs */}
+        <section className="container py-16">
+          <FeaturedJobs />
+        </section>
+
         {/* CTA */}
         <section className="container py-20">
           <div className="surface-elevated bg-gradient-primary text-primary-foreground p-10 md:p-14 text-center">
